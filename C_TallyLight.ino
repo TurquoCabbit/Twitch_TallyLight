@@ -13,7 +13,7 @@
 #include <TFT_eSPI.h>
 
 
-const char versionControl[] = "1.1";
+const char versionControl[] = "1.2";
 
 #define LOG_MAX_LENGHT    128
 
@@ -71,7 +71,7 @@ static void tftBackLight_pwmDuty_set(uint8_t percentage) {
 #ifdef FEATURE_LCD_ON
     uint32_t duty;
 
-    duty = percentage * 100 / 255;
+    duty = percentage * 255 / 100;
 
     ledcWrite(0, percentage);
 
@@ -108,7 +108,7 @@ static void tallyLight_stat_set(int sta) {
 
     switch (sta) {
         case TALLY_LIGHT_STA_OFFLINE:
-            tftBackLight_pwmDuty_set(20);
+            tftBackLight_pwmDuty_set(30);
             tft_fillScreen_color_set(TFT_GREEN);
             dbgPrintf("tallyLight:OFFLINE\n");
             break;
@@ -127,7 +127,7 @@ static void tallyLight_stat_set(int sta) {
         
         case TALLY_LIGHT_STA_NO_CONNECTED:
         default:
-            tftBackLight_pwmDuty_set(20);
+            tftBackLight_pwmDuty_set(30);
             tft_fillScreen_color_set(TFT_BLUE);
             dbgPrintf("tallyLight:NO CONNECTED\n");
             break;
