@@ -13,7 +13,7 @@
 #include <TFT_eSPI.h>
 
 
-const char versionControl[] = "1.0";
+const char versionControl[] = "1.1";
 
 #define LOG_MAX_LENGHT    128
 
@@ -205,6 +205,8 @@ void loop() {
     }
 
     tokenReGetCnt --;
+    dbgPrintf("tokenReGetCnt:%d\n", tokenReGetCnt);
+
     delay(POLLING_DELAY_TIME_ms); // Check every 10 seconds
 }
 
