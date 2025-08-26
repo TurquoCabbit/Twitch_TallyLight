@@ -13,7 +13,7 @@
 #include <TFT_eSPI.h>
 
 
-const char versionControl[] = "1.2";
+const char versionControl[] = "1.3";
 
 #define LOG_MAX_LENGHT    128
 
@@ -33,6 +33,9 @@ const char* streamer_login = "STREAMER_NAME"; // lowercase Twitch username
 #define POLLING_DELAY_TIME_ms   (10000)     // Update status every 10s
 #define TOKEN_RE_GET_TIME_s     (14400)     // Get token every 4 hours
 #define TOKEN_RE_GET_TIME_CNT   (TOKEN_RE_GET_TIME_s / (POLLING_DELAY_TIME_ms / 1000))
+
+#define LCD_BKLIGHT_PERCENTAGE_LOW      (20)    // (0 ~ 100)
+#define LCD_BKLIGHT_PERCENTAGE_HIGH     (60)    // (0 ~ 100)
 
 static String accessToken;
 static int tokenReGetCnt;
@@ -108,26 +111,26 @@ static void tallyLight_stat_set(int sta) {
 
     switch (sta) {
         case TALLY_LIGHT_STA_OFFLINE:
-            tftBackLight_pwmDuty_set(30);
+            tftBackLight_pwmDuty_set(LCD_BKLIGHT_PERCENTAGE_LOW);
             tft_fillScreen_color_set(TFT_GREEN);
             dbgPrintf("tallyLight:OFFLINE\n");
             break;
         
         case TALLY_LIGHT_STA_ONAIR:
-            tftBackLight_pwmDuty_set(100);
+            tftBackLight_pwmDuty_set(LCD_BKLIGHT_PERCENTAGE_HIGH);
             tft_fillScreen_color_set(TFT_RED);
             dbgPrintf("tallyLight:ON AIR\n");
             break;
             
         case TALLY_LIGHT_STA_ERROR:
-            tftBackLight_pwmDuty_set(100);
+            tftBackLight_pwmDuty_set(LCD_BKLIGHT_PERCENTAGE_HIGH);
             tft_fillScreen_color_set(TFT_YELLOW);
             dbgPrintf("tallyLight:ERROR\n");
             break;
         
         case TALLY_LIGHT_STA_NO_CONNECTED:
         default:
-            tftBackLight_pwmDuty_set(30);
+            tftBackLight_pwmDuty_set(LCD_BKLIGHT_PERCENTAGE_LOW);
             tft_fillScreen_color_set(TFT_BLUE);
             dbgPrintf("tallyLight:NO CONNECTED\n");
             break;
