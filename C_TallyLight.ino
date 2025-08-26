@@ -40,9 +40,10 @@ const char* streamer_login = "STREAMER_NAME"; // lowercase Twitch username
 #define LCD_BKLIGHT_PERCENTAGE_LOW      (20)    // (0% ~ 100%)
 
 #define WS2812_GPIO_PIN                         (25)
-#define WS2812_QYT                              (5)
+#define WS2812_HARDWARE_LEDS_QYT                (16)
+#define WS2812_USE_LEDS_QYT                     (5)
 #define WS2812_LED_BRIGHTNESS_PERCENTAGE_HIGH   (60)    // (0% ~ 100%)
-#define WS2812_LED_BRIGHTNESS_PERCENTAGE_LOW    (20)    // (0% ~ 100%)
+#define WS2812_LED_BRIGHTNESS_PERCENTAGE_LOW    (30)    // (0% ~ 100%)
 
 static String accessToken;
 static int tokenReGetCnt;
@@ -51,7 +52,7 @@ static int isStreamerLive();
 
 static TFT_eSPI tft = TFT_eSPI();
 
-static Adafruit_NeoPixel strip(WS2812_QYT, WS2812_GPIO_PIN, NEO_GRBW + NEO_KHZ800);
+static Adafruit_NeoPixel strip(WS2812_HARDWARE_LEDS_QYT, WS2812_GPIO_PIN, NEO_GRBW + NEO_KHZ800);
 
 
 static int dbgPrintf(const char * format,...) {
@@ -125,7 +126,7 @@ static void ws2812_color_set(uint8_t r, uint8_t g, uint8_t b, uint8_t w, uint8_t
     strip.setBrightness(bn);  // 0-255 brightness
 
     strip.clear();
-    strip.fill(strip.Color(r, g, b ,w), 0, WS2812_QYT);
+    strip.fill(strip.Color(r, g, b ,w), 0, WS2812_USE_LEDS_QYT);
 
     strip.show();
 #endif
@@ -178,6 +179,20 @@ static void tallyLight_stat_set(int sta) {
     }
 }
 
+void tallyLight_stat_test_mode(void) {
+    for(;;) {
+
+        tallyLight_stat_set(TALLY_LIGHT_STA_ERROR);
+        delay(2000);
+        tallyLight_stat_set(TALLY_LIGHT_STA_NO_CONNECTED);
+        delay(2000);
+        tallyLight_stat_set(TALLY_LIGHT_STA_OFFLINE);
+        delay(2000);
+        tallyLight_stat_set(TALLY_LIGHT_STA_ONAIR);
+        delay(2000);
+    }
+}
+
 void setup() {
 
 #ifdef FEATURE_SERIAL_ON
@@ -202,6 +217,11 @@ void setup() {
 #endif
 
     tallyLight_stat_set(TALLY_LIGHT_STA_NO_CONNECTED);
+
+
+    /** Quit test each tally light state indication */
+    // tallyLight_stat_test_mode();
+    /********************************************** */
 
     WiFi.begin(ssid, password);
     dbgPrintf("Connecting to WiFi [%s] ...\n", ssid);
