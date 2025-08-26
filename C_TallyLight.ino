@@ -14,7 +14,7 @@
 
 #include <Adafruit_NeoPixel.h>
 
-const char versionControl[] = "1.4";
+const char versionControl[] = "1.5";
 
 #define LOG_MAX_LENGHT    128
 
@@ -44,6 +44,8 @@ const char* streamer_login = "STREAMER_NAME"; // lowercase Twitch username
 #define WS2812_USE_LEDS_QYT                     (5)
 #define WS2812_LED_BRIGHTNESS_PERCENTAGE_HIGH   (60)    // (0% ~ 100%)
 #define WS2812_LED_BRIGHTNESS_PERCENTAGE_LOW    (30)    // (0% ~ 100%)
+#define WS2812_NIGHT_MODE_START_HOUR            (21)    // (0 ~24)
+#define WS2812_NIGHT_MODE_END_HOUR              (10)    // (0 ~24)
 
 static String accessToken;
 static int tokenReGetCnt;
@@ -132,19 +134,33 @@ static void ws2812_color_set(uint8_t r, uint8_t g, uint8_t b, uint8_t w, uint8_t
 #endif
 }
 
+static void ws2812_color_clear(void) {
+    // strip.clear();
+    strip.fill(0, 0, WS2812_USE_LEDS_QYT);
+    strip.show();
+}
+
 
 #define TALLY_LIGHT_STA_ERROR           -1
 #define TALLY_LIGHT_STA_NO_CONNECTED    0
 #define TALLY_LIGHT_STA_OFFLINE         1
 #define TALLY_LIGHT_STA_ONAIR           2
-static void tallyLight_stat_set(int sta) {
+static void tallyLight_stat_set(int sta, bool nightMode) {
+
+    if (nightMode) {
+        dbgPrintf("tallyLight in night mode\n");
+    }
 
     switch (sta) {
         case TALLY_LIGHT_STA_OFFLINE:
             tftBackLight_pwmDuty_set(LCD_BKLIGHT_PERCENTAGE_LOW);
             tft_fillScreen_color_set(TFT_GREEN);
 
-            ws2812_color_set(0, 255, 0, 0, WS2812_LED_BRIGHTNESS_PERCENTAGE_LOW);
+            if (nightMode) {
+                ws2812_color_clear();
+            } else {
+                ws2812_color_set(0, 255, 0, 0, WS2812_LED_BRIGHTNESS_PERCENTAGE_LOW);
+            }
 
             dbgPrintf("tallyLight:OFFLINE\n");
             break;
@@ -172,23 +188,56 @@ static void tallyLight_stat_set(int sta) {
             tftBackLight_pwmDuty_set(LCD_BKLIGHT_PERCENTAGE_LOW);
             tft_fillScreen_color_set(TFT_BLUE);
             
-            ws2812_color_set(0, 0, 255, 0, WS2812_LED_BRIGHTNESS_PERCENTAGE_LOW);
-
+            if (nightMode) {
+                ws2812_color_clear();
+            } else {
+                ws2812_color_set(0, 0, 255, 0, WS2812_LED_BRIGHTNESS_PERCENTAGE_LOW);
+            }
+            
             dbgPrintf("tallyLight:NO CONNECTED\n");
             break;
     }
 }
 
-void tallyLight_stat_test_mode(void) {
+static void nightMode_stat_check(tm *tmInfo, bool *isNightMode) {
+#if (WS2812_NIGHT_MODE_START_HOUR == WS2812_NIGHT_MODE_START_HOUR)
+    int hourNow;
+
+    hourNow = tmInfo->tm_hour;
+
+    *isNightMode = 0;
+
+    #if (WS2812_NIGHT_MODE_START_HOUR > WS2812_NIGHT_MODE_END_HOUR)
+        if (hourNow >= WS2812_NIGHT_MODE_START_HOUR || hourNow < WS2812_NIGHT_MODE_END_HOUR) {
+            *isNightMode = 1;    
+        }
+    #else
+        if (hourNow >= WS2812_NIGHT_MODE_START_HOUR && hourNow < WS2812_NIGHT_MODE_END_HOUR) {
+            *isNightMode = 1;    
+        }
+    #endif
+#endif
+}
+
+static void tallyLight_stat_test_mode(void) {
     for(;;) {
 
-        tallyLight_stat_set(TALLY_LIGHT_STA_ERROR);
+        tallyLight_stat_set(TALLY_LIGHT_STA_ERROR, 0);
         delay(2000);
-        tallyLight_stat_set(TALLY_LIGHT_STA_NO_CONNECTED);
+        tallyLight_stat_set(TALLY_LIGHT_STA_NO_CONNECTED, 0);
         delay(2000);
-        tallyLight_stat_set(TALLY_LIGHT_STA_OFFLINE);
+        tallyLight_stat_set(TALLY_LIGHT_STA_OFFLINE, 0);
         delay(2000);
-        tallyLight_stat_set(TALLY_LIGHT_STA_ONAIR);
+        tallyLight_stat_set(TALLY_LIGHT_STA_ONAIR, 0);
+        delay(2000);
+        
+        tallyLight_stat_set(TALLY_LIGHT_STA_ERROR, 1);
+        delay(2000);
+        tallyLight_stat_set(TALLY_LIGHT_STA_NO_CONNECTED, 1);
+        delay(2000);
+        tallyLight_stat_set(TALLY_LIGHT_STA_OFFLINE, 1);
+        delay(2000);
+        tallyLight_stat_set(TALLY_LIGHT_STA_ONAIR, 1);
         delay(2000);
     }
 }
@@ -216,8 +265,12 @@ void setup() {
     strip.show();             // Turn off all LEDs initially
 #endif
 
-    tallyLight_stat_set(TALLY_LIGHT_STA_NO_CONNECTED);
+    tallyLight_stat_set(TALLY_LIGHT_STA_NO_CONNECTED, 0);
 
+    tft.setTextColor(TFT_WHITE);
+    tft.setTextSize(5);
+    tft.setCursor(24, 100);
+    tft.printf("%s", versionControl);
 
     /** Quit test each tally light state indication */
     // tallyLight_stat_test_mode();
@@ -238,6 +291,7 @@ void setup() {
 void loop() {
     static int isTokenValid = 0;
     static int isOnAir = 0;
+    static bool isNightMode;
 
     struct tm timeinfo;
 
@@ -248,7 +302,7 @@ void loop() {
         tokenReGetCnt = TOKEN_RE_GET_TIME_CNT;
 
         if (isTokenValid == -1) {
-            tallyLight_stat_set(TALLY_LIGHT_STA_ERROR);
+            tallyLight_stat_set(TALLY_LIGHT_STA_ERROR, isNightMode);
             tokenReGetCnt = 5;
         }
 
@@ -259,11 +313,11 @@ void loop() {
         isOnAir = isStreamerLive();
 
         if (isOnAir == 1) {
-            tallyLight_stat_set(TALLY_LIGHT_STA_ONAIR);
+            tallyLight_stat_set(TALLY_LIGHT_STA_ONAIR, isNightMode);
         } else if (isOnAir == 0) {
-            tallyLight_stat_set(TALLY_LIGHT_STA_OFFLINE);
+            tallyLight_stat_set(TALLY_LIGHT_STA_OFFLINE, isNightMode);
         } else if (isOnAir == -1) {
-            tallyLight_stat_set(TALLY_LIGHT_STA_ERROR);
+            tallyLight_stat_set(TALLY_LIGHT_STA_ERROR, isNightMode);
             isTokenValid = 0;
         }
     }
@@ -271,6 +325,8 @@ void loop() {
     if (getLocalTime(&timeinfo)) {
         dbgPrintf("%02d:%02d:%02d\n", timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
         tft_time_print(&timeinfo);
+
+        nightMode_stat_check(&timeinfo, &isNightMode);
     }
 
     tokenReGetCnt --;

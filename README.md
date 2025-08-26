@@ -27,7 +27,7 @@ Auto update Twitch streamer live status use Twitch API. The live status will sho
 
 ---
 
-*20250815 version 1.4*
+*20250815 version 1.5*
 
 |Hardware|version
 |:--|:--|
