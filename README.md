@@ -27,7 +27,7 @@ Auto update Twitch streamer live status use Twitch API. The live status will sho
 
 ---
 
-*20250815 version 1.0*
+*20250815 version 1.4*
 
 |Hardware|version
 |:--|:--|
@@ -47,3 +47,4 @@ Auto update Twitch streamer live status use Twitch API. The live status will sho
 |SPI              |2.0.0|
 |FS               |2.0.0|
 |SPIFFS           |2.0.0|
+|Adafruit NeoPixel|1.15.1|

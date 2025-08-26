@@ -12,13 +12,15 @@
 
 #include <TFT_eSPI.h>
 
+#include <Adafruit_NeoPixel.h>
 
-const char versionControl[] = "1.3";
+const char versionControl[] = "1.4";
 
 #define LOG_MAX_LENGHT    128
 
 #define FEATURE_SERIAL_ON
 #define FEATURE_LCD_ON
+#define FEATURE_WS2812_ON
 
 
 #include "./user_data.h"
@@ -34,8 +36,13 @@ const char* streamer_login = "STREAMER_NAME"; // lowercase Twitch username
 #define TOKEN_RE_GET_TIME_s     (14400)     // Get token every 4 hours
 #define TOKEN_RE_GET_TIME_CNT   (TOKEN_RE_GET_TIME_s / (POLLING_DELAY_TIME_ms / 1000))
 
-#define LCD_BKLIGHT_PERCENTAGE_LOW      (20)    // (0 ~ 100)
-#define LCD_BKLIGHT_PERCENTAGE_HIGH     (60)    // (0 ~ 100)
+#define LCD_BKLIGHT_PERCENTAGE_HIGH     (60)    // (0% ~ 100%)
+#define LCD_BKLIGHT_PERCENTAGE_LOW      (20)    // (0% ~ 100%)
+
+#define WS2812_GPIO_PIN                         (25)
+#define WS2812_QYT                              (5)
+#define WS2812_LED_BRIGHTNESS_PERCENTAGE_HIGH   (60)    // (0% ~ 100%)
+#define WS2812_LED_BRIGHTNESS_PERCENTAGE_LOW    (20)    // (0% ~ 100%)
 
 static String accessToken;
 static int tokenReGetCnt;
@@ -43,6 +50,8 @@ static int getAccessToken();
 static int isStreamerLive();
 
 static TFT_eSPI tft = TFT_eSPI();
+
+static Adafruit_NeoPixel strip(WS2812_QYT, WS2812_GPIO_PIN, NEO_GRBW + NEO_KHZ800);
 
 
 static int dbgPrintf(const char * format,...) {
@@ -103,6 +112,26 @@ static void tft_time_print(struct tm *timeinfo) {
 #endif
 }
 
+static void ws2812_color_set(uint8_t r, uint8_t g, uint8_t b, uint8_t w, uint8_t brightness_percentage) {
+#ifdef FEATURE_WS2812_ON
+    uint8_t bn;
+
+    if (brightness_percentage > 100) {
+        brightness_percentage = 100;
+    }
+
+    bn = (255 * brightness_percentage) / 100;
+
+    strip.setBrightness(bn);  // 0-255 brightness
+
+    strip.clear();
+    strip.fill(strip.Color(r, g, b ,w), 0, WS2812_QYT);
+
+    strip.show();
+#endif
+}
+
+
 #define TALLY_LIGHT_STA_ERROR           -1
 #define TALLY_LIGHT_STA_NO_CONNECTED    0
 #define TALLY_LIGHT_STA_OFFLINE         1
@@ -113,18 +142,27 @@ static void tallyLight_stat_set(int sta) {
         case TALLY_LIGHT_STA_OFFLINE:
             tftBackLight_pwmDuty_set(LCD_BKLIGHT_PERCENTAGE_LOW);
             tft_fillScreen_color_set(TFT_GREEN);
+
+            ws2812_color_set(0, 255, 0, 0, WS2812_LED_BRIGHTNESS_PERCENTAGE_LOW);
+
             dbgPrintf("tallyLight:OFFLINE\n");
             break;
         
         case TALLY_LIGHT_STA_ONAIR:
             tftBackLight_pwmDuty_set(LCD_BKLIGHT_PERCENTAGE_HIGH);
             tft_fillScreen_color_set(TFT_RED);
+
+            ws2812_color_set(255, 0, 0, 0, WS2812_LED_BRIGHTNESS_PERCENTAGE_HIGH);
+
             dbgPrintf("tallyLight:ON AIR\n");
             break;
             
         case TALLY_LIGHT_STA_ERROR:
             tftBackLight_pwmDuty_set(LCD_BKLIGHT_PERCENTAGE_HIGH);
             tft_fillScreen_color_set(TFT_YELLOW);
+
+            ws2812_color_set(128, 128, 0, 0, WS2812_LED_BRIGHTNESS_PERCENTAGE_HIGH);
+
             dbgPrintf("tallyLight:ERROR\n");
             break;
         
@@ -132,6 +170,9 @@ static void tallyLight_stat_set(int sta) {
         default:
             tftBackLight_pwmDuty_set(LCD_BKLIGHT_PERCENTAGE_LOW);
             tft_fillScreen_color_set(TFT_BLUE);
+            
+            ws2812_color_set(0, 0, 255, 0, WS2812_LED_BRIGHTNESS_PERCENTAGE_LOW);
+
             dbgPrintf("tallyLight:NO CONNECTED\n");
             break;
     }
@@ -153,6 +194,11 @@ void setup() {
     tft.fillScreen(TFT_BLACK);
 
     tft_backLight_pwm_init(0, 5000);
+#endif
+
+#ifdef FEATURE_WS2812_ON
+    strip.begin();            // Initialize NeoPixel
+    strip.show();             // Turn off all LEDs initially
 #endif
 
     tallyLight_stat_set(TALLY_LIGHT_STA_NO_CONNECTED);
