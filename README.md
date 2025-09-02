@@ -7,7 +7,7 @@ Auto update Twitch streamer live status use Twitch API. The live status will sho
 |🟥|On Air|Streamer is live|
 |🟩|Off Line|Streamer off line|
 |🟨|Error|Some thing went wrong on http client, Check live log for httpcode via comport (115200 8 n 1)|
-|🟦|Power On|Power on and start connect to Wifi, If it stay in this status means Wifi connect fail|
+|🟦|Wifi connecting|Power on and start connect to Wifi, or Wifi losted and is reconnecting, If stay in this status means Wifi connect fail|
 
 ---
 ### How to use
@@ -27,7 +27,7 @@ Auto update Twitch streamer live status use Twitch API. The live status will sho
 
 ---
 
-*20250815 version 1.5*
+*20250815 version 1.6*
 
 |Hardware|version
 |:--|:--|

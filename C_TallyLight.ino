@@ -14,7 +14,7 @@
 
 #include <Adafruit_NeoPixel.h>
 
-const char versionControl[] = "1.5";
+const char versionControl[] = "1.6";
 
 #define LOG_MAX_LENGHT    128
 
@@ -32,7 +32,7 @@ const char* twitch_client_secret = "YOUR_TWITCH_CLIENT_SECRET";
 const char* streamer_login = "STREAMER_NAME"; // lowercase Twitch username
 */
 
-#define POLLING_DELAY_TIME_ms   (10000)     // Update status every 10s
+#define POLLING_DELAY_TIME_ms   (20000)     // Update status every 20s
 #define TOKEN_RE_GET_TIME_s     (14400)     // Get token every 4 hours
 #define TOKEN_RE_GET_TIME_CNT   (TOKEN_RE_GET_TIME_s / (POLLING_DELAY_TIME_ms / 1000))
 
@@ -41,7 +41,7 @@ const char* streamer_login = "STREAMER_NAME"; // lowercase Twitch username
 
 #define WS2812_GPIO_PIN                         (25)
 #define WS2812_HARDWARE_LEDS_QYT                (16)
-#define WS2812_USE_LEDS_QYT                     (5)
+#define WS2812_USE_LEDS_QYT                     (4)
 #define WS2812_LED_BRIGHTNESS_PERCENTAGE_HIGH   (60)    // (0% ~ 100%)
 #define WS2812_LED_BRIGHTNESS_PERCENTAGE_LOW    (30)    // (0% ~ 100%)
 #define WS2812_NIGHT_MODE_START_HOUR            (21)    // (0 ~24)
@@ -295,31 +295,41 @@ void loop() {
 
     struct tm timeinfo;
 
-    if (tokenReGetCnt <= 0) {
-        // for hours
-        isTokenValid = getAccessToken();
+    if (WiFi.status() == WL_CONNECTED) {
+
+        if (tokenReGetCnt <= 0) {
+            // for hours
+            isTokenValid = getAccessToken();
+            
+            tokenReGetCnt = TOKEN_RE_GET_TIME_CNT;
+
+            if (isTokenValid == -1) {
+                tallyLight_stat_set(TALLY_LIGHT_STA_ERROR, isNightMode);
+                tokenReGetCnt = 5;
+            }
+
+            configTime(8 * 3600, 0, "pool.ntp.org");
+        }
         
-        tokenReGetCnt = TOKEN_RE_GET_TIME_CNT;
+        if (isTokenValid == 1) {
+            isOnAir = isStreamerLive();
 
-        if (isTokenValid == -1) {
-            tallyLight_stat_set(TALLY_LIGHT_STA_ERROR, isNightMode);
-            tokenReGetCnt = 5;
+            if (isOnAir == 1) {
+                tallyLight_stat_set(TALLY_LIGHT_STA_ONAIR, isNightMode);
+            } else if (isOnAir == 0) {
+                tallyLight_stat_set(TALLY_LIGHT_STA_OFFLINE, isNightMode);
+            } else if (isOnAir == -1) {
+                tallyLight_stat_set(TALLY_LIGHT_STA_ERROR, isNightMode);
+                isTokenValid = 0;
+            }
         }
+    } else {
+        dbgPrintf("WIFI losted, reconnecting...\n");
 
-        configTime(8 * 3600, 0, "pool.ntp.org");
-    }
-    
-    if (isTokenValid == 1) {
-        isOnAir = isStreamerLive();
+        WiFi.disconnect();
+        WiFi.begin(ssid, password);
 
-        if (isOnAir == 1) {
-            tallyLight_stat_set(TALLY_LIGHT_STA_ONAIR, isNightMode);
-        } else if (isOnAir == 0) {
-            tallyLight_stat_set(TALLY_LIGHT_STA_OFFLINE, isNightMode);
-        } else if (isOnAir == -1) {
-            tallyLight_stat_set(TALLY_LIGHT_STA_ERROR, isNightMode);
-            isTokenValid = 0;
-        }
+        tallyLight_stat_set(TALLY_LIGHT_STA_NO_CONNECTED, isNightMode);
     }
     
     if (getLocalTime(&timeinfo)) {
@@ -328,8 +338,11 @@ void loop() {
 
         nightMode_stat_check(&timeinfo, &isNightMode);
     }
+    
+    if (tokenReGetCnt) {
+        tokenReGetCnt --;
+    }
 
-    tokenReGetCnt --;
     dbgPrintf("tokenReGetCnt:%d\n", tokenReGetCnt);
 
     delay(POLLING_DELAY_TIME_ms); // Check every 10 seconds
